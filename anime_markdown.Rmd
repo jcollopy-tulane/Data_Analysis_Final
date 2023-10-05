@@ -20,15 +20,21 @@ unique_genres[1:5]
 typeof(anime$Genres)
 ```
 
+```{r}
+replace_genres <- function(genre_list) {
+  
+  genre_list <- gsub("Martial Arts", "MartialArts", genre_list)
+  genre_list <- gsub("Slice of Life", "SliceofLife", genre_list)
+  return(genre_list)
+}
 
+anime$Genres <- lapply(anime$Genres, function(genre_list) replace_genres(genre_list))
+```
 
 ```{r}
 # Putting the items in "Genres" column into a list
 
-anime$Genres <- lapply(anime$Genres, function(x) unlist(strsplit(x, " ")))
-```
-
-```{r}
+anime$Genres <- lapply(anime$Genres, function(x) unlist(strsplit(x, ", ")))
 ```
 
 ```{r}
