@@ -1,0 +1,67 @@
+---
+title: "Anime Data"
+author: "John Collopy"
+date: "9/21/2023"
+output: html_document
+---
+
+```{r}
+anime <- read.csv("~/Downloads/anime.csv")
+```
+
+
+```{r}
+# Finding the unique Genres in the Genres column
+unique_genres <- unique(anime$Genres)
+unique_genres[1:5]
+```
+
+```{r}
+typeof(anime$Genres)
+```
+
+
+
+```{r}
+# Putting the items in "Genres" column into a list
+
+anime$Genres <- lapply(anime$Genres, function(x) unlist(strsplit(x, " ")))
+```
+
+```{r}
+```
+
+```{r}
+#Finding the Genre that appears the most
+
+unlisted_strings <- unlist(anime$Genres)
+string_frequencies <- table(unlisted_strings)
+
+# Convert the frequency table to a data frame
+frequency_df <- as.data.frame(string_frequencies)
+
+# Rename the columns
+colnames(frequency_df) <- c("String", "Frequency")
+
+# Print the frequency data frame
+sorted_data <- frequency_df[order(-frequency_df$Frequency), ]
+
+# Print the sorted data frame
+print(sorted_data)
+```
+
+```{r}
+# Need to get rid of Hentai, Ecchi, Harem, Yaoi, Yuri
+```
+
+```{r}
+# Getting Rid of the weirdo genres
+anime <- anime[!grepl("Hentai", anime$Genres),]
+anime <- anime[!grepl("Ecchi", anime$Genres),]
+anime <- anime[!grepl("Harem", anime$Genres),]
+anime <- anime[!grepl("Yaoi", anime$Genres),]
+anime <- anime[!grepl("Yuri", anime$Genres),]
+```
+
+
+
