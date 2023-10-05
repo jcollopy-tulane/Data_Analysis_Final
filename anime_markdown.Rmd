@@ -7,6 +7,7 @@ output: html_document
 
 ```{r}
 anime <- read.csv("~/Downloads/anime.csv")
+View(anime)
 ```
 
 
@@ -34,13 +35,13 @@ anime$Genres <- lapply(anime$Genres, function(genre_list) replace_genres(genre_l
 ```{r}
 # Putting the items in "Genres" column into a list
 
-anime$Genres <- lapply(anime$Genres, function(x) unlist(strsplit(x, ", ")))
+anime$Genres_List <- lapply(anime$Genres, function(x) unlist(strsplit(x, ", ")))
 ```
 
 ```{r}
 #Finding the Genre that appears the most
 
-unlisted_strings <- unlist(anime$Genres)
+unlisted_strings <- unlist(anime$Genres_List)
 string_frequencies <- table(unlisted_strings)
 
 # Convert the frequency table to a data frame
@@ -70,4 +71,30 @@ anime <- anime[!grepl("Yuri", anime$Genres),]
 ```
 
 
+```{r}
+# Making the Year_Premiered Column
+
+anime$Year_Premiered <- ifelse(anime$Premiered == "Unknown",
+                         "Unknown",
+                         sub(".* (\\d{4})", "\\1", anime$Premiered))
+```
+
+```{r}
+anime$Year_Premiered
+```
+
+
+```{r}
+breaks <- c(0,1, 10, 30, 60, Inf) 
+
+anime$bin_episodes <- cut(as.integer(anime$Episodes), breaks = breaks)
+item_counts <- table(anime$bin_episodes)
+item_counts
+#hist_data <- hist(anime$bin_episodes, main = "Histogram", xlab = "Bins", ylab = #"Frequency")
+```
+
+```{r}
+unknown_count <- sum(anime$Episodes == "Unknown")
+unknown_count
+```
 
