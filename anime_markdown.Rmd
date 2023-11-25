@@ -8,7 +8,6 @@ output: html_document
 Introduction:
 
 
-
 Step 1: Data Collection
 
 Our dataset can be found [here](https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020) on Kaggle. We chose to use this dataset for our project because it contains features conducive to the goal of our project.
@@ -52,7 +51,14 @@ Here is the list of features contained in the dataset:
 35. Score-1': number of users who scored 1. (e.g. 1580)
 
 Below: we upload the dataset and view the first 5 rows.
+
 ```{r}
+# Importing the necessary libraries
+library(tidyverse)
+```
+
+```{r}
+# Importing the data
 anime <- read.csv("anime.csv")
 head(anime)
 ```
@@ -65,26 +71,117 @@ Our data now needs to be prepared for modeling. The first column to amend is the
 typeof(anime$Genres)
 ```
 
-Now, let's see what different genres are in this column.
 
 ```{r}
-# Finding the unique Genres in the Genres column
-unique_genres <- unique(anime$Genres)
-unique_genres[1:10]
+genre_counts <- anime %>%
+  separate_rows(Genres, sep = ", ") %>%
+  group_by(Genres) %>%
+  summarize(count = n())
+
+# Display the result
+print(genre_counts)
+```
+
+```{r}
+# Removing non-family friendly content
+unclean <- c("Hentai", "Ecchi", "Harem", "Yaoi", "Yuri")
+anime_clean <- anime[ !grepl(paste(unclean, collapse="|"), anime$Genres),]
+```
+
+```{r}
+genre_counts_1 <- anime_clean %>%
+  separate_rows(Genres, sep = ", ") %>%
+  group_by(Genres) %>%
+  summarize(count = n())
+
+# Display the result
+print(genre_counts_1)
 ```
 
 
+```{r}
+unique(anime_clean$Rating)
+```
+```{r}
+# Removing shows containing nudity
+anime_clean <- anime_clean[ !grepl(paste("Mild Nudity", collapse="|"), anime_clean$Rating),]
+unique(anime_clean$Rating)
+```
 
 ```{r}
-replace_genres <- function(genre_list) {
-  
-  genre_list <- gsub("Martial Arts", "MartialArts", genre_list)
-  genre_list <- gsub("Slice of Life", "SliceofLife", genre_list)
-  return(genre_list)
-}
-
-anime$Genres <- lapply(anime$Genres, function(genre_list) replace_genres(genre_list))
+unknown_count <- sum(anime_clean$Rating == "Unknown")
+unknown_count
 ```
+
+
+```{r}
+dummy_variables <- model.matrix(~ Rating - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+print(anime_clean)
+```
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Type),]
+```
+
+```{r}
+unknown_count <- sum(anime_clean$Type == "Unknown")
+unknown_count
+```
+
+```{r}
+dummy_variables <- model.matrix(~ Type - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+print(anime_clean)
+```
+
+```{r}
+# Extracting the year the anime aired
+after_comma <- sub(".*,", "", anime_clean$Aired)
+anime_clean$Year_Premiered <- substr(after_comma, 1, 5)
+unique(anime_clean$Year_Premiered)
+```
+
+```{r}
+unknown_count <- sum(anime_clean$Year_Premiered == "Unkno")
+unknown_count
+```
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unkno", collapse="|"), anime_clean$Rating),]
+unique(anime_clean$Rating)
+```
+
+
+```{r}  
+# Creating Dummy Variables For Genre
+anime_clean <- anime_clean %>%
+  mutate(Genres = strsplit(Genres, ", ")) %>%
+  unnest(Genres) %>%
+  distinct() %>%
+  mutate(dummy = 1) %>%
+  spread(Genres, dummy, fill = 0)
+
+anime_clean
+```
+
+```{r}
+# Creating Dummy Variables For Type
+
+```
+
+```{r}
+# Creating Dummy Variable for Source
+```
+
 
 ```{r}
 # Putting the items in "Genres" column into a list
@@ -115,15 +212,25 @@ print(sorted_data)
 # Need to get rid of Hentai, Ecchi, Harem, Yaoi, Yuri
 ```
 
-```{r}
-# Getting Rid of the weirdo genres
-anime <- anime[!grepl("Hentai", anime$Genres),]
-anime <- anime[!grepl("Ecchi", anime$Genres),]
-anime <- anime[!grepl("Harem", anime$Genres),]
-anime <- anime[!grepl("Yaoi", anime$Genres),]
-anime <- anime[!grepl("Yuri", anime$Genres),]
-```
 
+
+```{r}
+anime$Genres <- as.character(anime$Genres)
+genres_split <- strsplit(anime$Genres, ", ")
+genres_dummies <- table(rep(seq_along(genres_split), sapply(genres_split, length)), unlist(genres_split))
+
+# Combine the dummy variables with the original data
+result <- cbind(anime, as.data.frame.matrix(genres_dummies))
+
+# Rename the columns for better readability
+colnames(result) <- gsub(" ", "_", colnames(result))
+
+# Display the result
+print(result)
+```
+```{r}
+anime
+```
 
 ```{r}
 # Making the Year_Premiered Column
@@ -151,4 +258,13 @@ item_counts
 unknown_count <- sum(anime$Episodes == "Unknown")
 unknown_count
 ```
+```{r}
+replace_genres <- function(genre_list) {
+  
+  genre_list <- gsub("Martial Arts", "MartialArts", genre_list)
+  genre_list <- gsub("Slice of Life", "SliceofLife", genre_list)
+  return(genre_list)
+}
 
+anime$Genres <- lapply(anime$Genres, function(genre_list) replace_genres(genre_list))
+```
