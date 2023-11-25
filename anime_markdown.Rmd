@@ -10,7 +10,7 @@ Introduction:
 
 Step 1: Data Collection
 
-Our dataset can be found [here](https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020) on Kaggle. We chose to use this dataset for our project because it contains features conducive to the goal of our project.
+Our dataset can be found [here](https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020) on Kaggle. We chose to use this dataset because it contains exhaustive information about a large collection of anime entertainment.
 
 Here is the list of features contained in the dataset:
 
@@ -50,7 +50,7 @@ Here is the list of features contained in the dataset:
 34. Score-2': number of users who scored 2. (e.g. 741)
 35. Score-1': number of users who scored 1. (e.g. 1580)
 
-Below: we upload the dataset and view the first 5 rows.
+Below: we import the necessary libraries,upload the dataset, and view the first 5 rows.
 
 ```{r}
 # Importing the necessary libraries
@@ -156,10 +156,13 @@ unknown_count
 ```
 
 ```{r}
-anime_clean <- anime_clean[ !grepl(paste("Unkno", collapse="|"), anime_clean$Rating),]
-unique(anime_clean$Rating)
+anime_clean <- anime_clean[ !grepl(paste("Unkno", collapse="|"), anime_clean$Year_Premiered),]
+unique(anime_clean$Year_Premiered)
 ```
 
+```{r}
+anime_clean$Year_Premiered <- as.numeric(anime_clean$Year_Premiered)
+```
 
 ```{r}  
 # Creating Dummy Variables For Genre
@@ -182,6 +185,59 @@ anime_clean
 # Creating Dummy Variable for Source
 ```
 
+Step 3: Data Visualization
+
+First, we shall check for the most popular type of anime in our dataset.
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+# Creating the barplot
+
+ggplot(anime_clean, aes(x = Type)) +
+  geom_bar() +
+  labs(title = "Frequency of Each Type",
+       x = "Type of Anime",
+       y = "Frequency")
+```
+
+```{r}
+# Creating the barplot
+
+ggplot(anime_clean, aes(x = Rating)) +
+  geom_bar() +
+  labs(title = "Frequency of Each Rating",
+       x = "Rating",
+       y = "Frequency")
+```
+```{r}
+average_ratings_type <- anime_clean %>%
+  group_by(Type) %>%
+  summarize(mean_rating = mean(Score))
+
+ggplot(anime_clean, aes(x = Type, y = as.numeric(Score))) +
+  stat_summary(fun = "mean", geom = "col") +
+  geom_text(data = average_ratings_type, aes(label = sprintf("%.2f", mean_rating), y = mean_rating + 0.1), vjust = -0.5) +
+  labs(title = "Average Rating for Each Type",
+       x = "Type",
+       y = "Average Rating") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+```{r}
+ggplot(anime_clean, aes(x = Year_Premiered)) +
+  geom_bar() +
+  labs(title = "Frequency of Each Year Premiered",
+       x = "Year Premiered",
+       y = "Frequency") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+```{r}
+
+```
 
 ```{r}
 # Putting the items in "Genres" column into a list
