@@ -65,105 +65,60 @@ head(anime)
 
 Step 2: ETL
 
-Our data now needs to be prepared for modeling. The first column to amend is the "Genres" column. First, let's check what type of data the column contains.
+Our data now needs to be prepared for modeling. Firstly, it is important to check if there are any null or missing values in the data frame.
+
+```{r}
+null_values <- is.na(anime)
+null_counts <- colSums(null_values)
+null_counts
+```
+
+
+Since there are no null values, the data frame can be prepped for modelling. The first column to amend is the "Genres" column. First, let's look at the column.
+
+```{r}
+head(anime$Genres)
+```
+
+Next, let's check what type of data is in the column.
 
 ```{r}
 typeof(anime$Genres)
 ```
 
+Next, let's check how many times each genre appears in the column.
 
 ```{r}
 genre_counts <- anime %>%
   separate_rows(Genres, sep = ", ") %>%
   group_by(Genres) %>%
-  summarize(count = n())
+  summarize(count = n()) %>%
+  arrange(desc(count))
 
-# Display the result
 print(genre_counts)
 ```
 
+
+For our project, we want to remove entertainment that includes explicit content and whose genre is unknown, so we create a new data frame without the undesired entertainment.
+
 ```{r}
 # Removing non-family friendly content
-unclean <- c("Hentai", "Ecchi", "Harem", "Yaoi", "Yuri")
+unclean <- c("Hentai", "Ecchi", "Harem", "Yaoi", "Yuri", "Unknown")
 anime_clean <- anime[ !grepl(paste(unclean, collapse="|"), anime$Genres),]
 ```
 
+Now, we can check
 ```{r}
 genre_counts_1 <- anime_clean %>%
   separate_rows(Genres, sep = ", ") %>%
   group_by(Genres) %>%
-  summarize(count = n())
+  summarize(count = n())%>%
+  arrange(desc(count))
 
 # Display the result
 print(genre_counts_1)
 ```
-
-
-```{r}
-unique(anime_clean$Rating)
-```
-```{r}
-# Removing shows containing nudity
-anime_clean <- anime_clean[ !grepl(paste("Mild Nudity", collapse="|"), anime_clean$Rating),]
-unique(anime_clean$Rating)
-```
-
-```{r}
-unknown_count <- sum(anime_clean$Rating == "Unknown")
-unknown_count
-```
-
-
-```{r}
-dummy_variables <- model.matrix(~ Rating - 1, data = anime_clean)
-
-# Combine the dummy variables with the original data frame
-anime_clean <- cbind(anime_clean, dummy_variables)
-
-# Print the result
-print(anime_clean)
-```
-
-```{r}
-anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Type),]
-```
-
-```{r}
-unknown_count <- sum(anime_clean$Type == "Unknown")
-unknown_count
-```
-
-```{r}
-dummy_variables <- model.matrix(~ Type - 1, data = anime_clean)
-
-# Combine the dummy variables with the original data frame
-anime_clean <- cbind(anime_clean, dummy_variables)
-
-# Print the result
-print(anime_clean)
-```
-
-```{r}
-# Extracting the year the anime aired
-after_comma <- sub(".*,", "", anime_clean$Aired)
-anime_clean$Year_Premiered <- substr(after_comma, 1, 5)
-unique(anime_clean$Year_Premiered)
-```
-
-```{r}
-unknown_count <- sum(anime_clean$Year_Premiered == "Unkno")
-unknown_count
-```
-
-```{r}
-anime_clean <- anime_clean[ !grepl(paste("Unkno", collapse="|"), anime_clean$Year_Premiered),]
-unique(anime_clean$Year_Premiered)
-```
-
-```{r}
-anime_clean$Year_Premiered <- as.numeric(anime_clean$Year_Premiered)
-```
-
+Now, we can create Dummy Variables for the "Genres" column.
 ```{r}  
 # Creating Dummy Variables For Genre
 anime_clean <- anime_clean %>%
@@ -173,58 +128,133 @@ anime_clean <- anime_clean %>%
   mutate(dummy = 1) %>%
   spread(Genres, dummy, fill = 0)
 
-anime_clean
+head(anime_clean)
+```
+
+Now, we evaluate the "Rating" column. First, let's check for each rating that appears.
+```{r}
+unique(anime_clean$Rating)
+```
+
+Since we do not want explicit content nor content we do not know much about, we remove such entertainment.
+```{r}
+# Removing shows containing nudity
+undesired <- c("Mild Nudity", "Unknown")
+anime_clean <- anime_clean[ !grepl(paste(undesired, collapse="|"), anime_clean$Rating),]
+unique(anime_clean$Rating)
+```
+
+Now, we can create Dummy Variables for Rating.
+```{r}
+dummy_variables <- model.matrix(~ Rating - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+head(anime_clean)
+```
+
+Now, we evaluate the "Type" column. First, let's check for each rating that appears.
+```{r}
+unique(anime_clean$Type)
+```
+
+We remove entertainment with an unknown Type.
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Type),]
+unique(anime_clean$Type)
+```
+
+Now, we can create Dummy Variables for Type.
+```{r}
+dummy_variables <- model.matrix(~ Type - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+head(anime_clean)
+```
+
+Next, we check the dates that all of the animes aired. First, we take a look at the column.
+
+```{r}
+head(anime_clean$Aired)
+```
+
+Next, we extract the year that the anime aired.
+
+```{r}
+# Extracting the year the anime aired
+after_comma <- sub(".*,", "", anime_clean$Aired)
+anime_clean$Year_Premiered <- substr(after_comma, 1, 5)
+unique(anime_clean$Year_Premiered)
+```
+
+Next, we remove all shows that do not have a known air date.
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unkno", collapse="|"), anime_clean$Year_Premiered),]
+unique(anime_clean$Year_Premiered)
+```
+
+Next, we make the column numeric.
+
+```{r}
+anime_clean$Year_Premiered <- as.numeric(anime_clean$Year_Premiered)
+```
+
+Next, we check the "Source" column.
+
+```{r}
+unique(anime_clean$Source)
+```
+
+Then, we remove shows that do not have a known source.
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Source),]
+unique(anime_clean$Source)
+```
+
+Then, we create Dummy Variables
+```{r}
+dummy_variables <- model.matrix(~ Source - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+print(anime_clean)
+```
+
+Next, we check the "Score" column.
+
+```{r}
+unique(anime_clean$Score)
 ```
 
 ```{r}
-# Creating Dummy Variables For Type
-
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Score),]
 ```
 
 ```{r}
-# Creating Dummy Variable for Source
+anime_clean$Score <- as.numeric(anime_clean$Score)
+```
+
+Next, we create the data frame that we will use for our modelling.
+
+```{r}
+colnames(anime_clean)
 ```
 
 Step 3: Data Visualization
 
-First, we shall check for the most popular type of anime in our dataset.
+We will use this section to create figures that will provide insight into our data. In order to do so, we will use the ggplot2 library. 
 
 ```{r}
 library(ggplot2)
-```
-
-```{r}
-# Creating the barplot
-
-ggplot(anime_clean, aes(x = Type)) +
-  geom_bar() +
-  labs(title = "Frequency of Each Type",
-       x = "Type of Anime",
-       y = "Frequency")
-```
-
-```{r}
-# Creating the barplot
-
-ggplot(anime_clean, aes(x = Rating)) +
-  geom_bar() +
-  labs(title = "Frequency of Each Rating",
-       x = "Rating",
-       y = "Frequency")
-```
-```{r}
-average_ratings_type <- anime_clean %>%
-  group_by(Type) %>%
-  summarize(mean_rating = mean(Score))
-
-ggplot(anime_clean, aes(x = Type, y = as.numeric(Score))) +
-  stat_summary(fun = "mean", geom = "col") +
-  geom_text(data = average_ratings_type, aes(label = sprintf("%.2f", mean_rating), y = mean_rating + 0.1), vjust = -0.5) +
-  labs(title = "Average Rating for Each Type",
-       x = "Type",
-       y = "Average Rating") +
-  theme_minimal() +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 ```{r}
@@ -235,92 +265,47 @@ ggplot(anime_clean, aes(x = Year_Premiered)) +
        y = "Frequency") +
   theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
 ```
-```{r}
 
+Next, we shall check how often each Type appears in our data set.
+
+```{r}
+# Creating the barplot
+ggplot(anime_clean, aes(x = Type)) +
+  geom_bar() +
+  labs(title = "Frequency of Each Type",
+       x = "Type of Anime",
+       y = "Frequency")
+```
+
+Then, we shall check how often each Rating appears in our data set.
+```{r}
+# Creating the barplot
+
+ggplot(anime_clean, aes(x = Rating)) +
+  geom_bar() +
+  labs(title = "Frequency of Each Rating",
+       x = "Rating",
+       y = "Frequency")
 ```
 
 ```{r}
-# Putting the items in "Genres" column into a list
+average_ratings_type <- anime_clean %>%
+  group_by(Type) %>%
+  summarize(mean_rating = mean(Score))
 
-anime$Genres_List <- lapply(anime$Genres, function(x) unlist(strsplit(x, ", ")))
-```
-
-```{r}
-#Finding the Genre that appears the most
-
-unlisted_strings <- unlist(anime$Genres_List)
-string_frequencies <- table(unlisted_strings)
-
-# Convert the frequency table to a data frame
-frequency_df <- as.data.frame(string_frequencies)
-
-# Rename the columns
-colnames(frequency_df) <- c("String", "Frequency")
-
-# Print the frequency data frame
-sorted_data <- frequency_df[order(-frequency_df$Frequency), ]
-
-# Print the sorted data frame
-print(sorted_data)
-```
-
-```{r}
-# Need to get rid of Hentai, Ecchi, Harem, Yaoi, Yuri
+ggplot(anime_clean, aes(x = Type, y = as.numeric(Score))) +
+  stat_summary(fun = "mean", geom = "col") +
+  geom_text(data = average_ratings_type, aes(label = sprintf("%.2f", mean_rating), y = mean_rating + 0.1), vjust = -0.5) +
+  labs(title = "Average Score for Each Type",
+       x = "Type",
+       y = "Average Rating") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
 
-
-```{r}
-anime$Genres <- as.character(anime$Genres)
-genres_split <- strsplit(anime$Genres, ", ")
-genres_dummies <- table(rep(seq_along(genres_split), sapply(genres_split, length)), unlist(genres_split))
-
-# Combine the dummy variables with the original data
-result <- cbind(anime, as.data.frame.matrix(genres_dummies))
-
-# Rename the columns for better readability
-colnames(result) <- gsub(" ", "_", colnames(result))
-
-# Display the result
-print(result)
-```
-```{r}
-anime
-```
-
-```{r}
-# Making the Year_Premiered Column
-
-anime$Year_Premiered <- ifelse(anime$Premiered == "Unknown",
-                         "Unknown",
-                         sub(".* (\\d{4})", "\\1", anime$Premiered))
-```
-
-```{r}
-anime$Year_Premiered
-```
+Find out which pair of Genres appear the most together
 
 
-```{r}
-breaks <- c(0,1, 10, 30, 60, Inf) 
 
-anime$bin_episodes <- cut(as.integer(anime$Episodes), breaks = breaks)
-item_counts <- table(anime$bin_episodes)
-item_counts
-#hist_data <- hist(anime$bin_episodes, main = "Histogram", xlab = "Bins", ylab = #"Frequency")
-```
 
-```{r}
-unknown_count <- sum(anime$Episodes == "Unknown")
-unknown_count
-```
-```{r}
-replace_genres <- function(genre_list) {
-  
-  genre_list <- gsub("Martial Arts", "MartialArts", genre_list)
-  genre_list <- gsub("Slice of Life", "SliceofLife", genre_list)
-  return(genre_list)
-}
-
-anime$Genres <- lapply(anime$Genres, function(genre_list) replace_genres(genre_list))
-```
