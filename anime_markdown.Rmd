@@ -320,24 +320,7 @@ ggplot(anime_clean, aes(x = Rating, y = as.numeric(Score))) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
-```{r}
-anime_clean <- anime_clean %>%
-  mutate(
-    across(starts_with("Score."), ~coalesce(as.numeric(.), 0)),
-    weighted_sum = Score.10 * 10 +
-                   Score.9 * 9 +
-                   Score.8 * 8 +
-                   Score.7 * 7 +
-                   Score.6 * 6 +
-                   Score.5 * 5 +
-                   Score.4 * 4 +
-                   Score.3 * 3 +
-                   Score.2 * 2 +
-                   Score.1 * 1,
-    sum_of_scores = rowSums(select(., starts_with("Score.")))
-  ) %>%
-  mutate(weighted_average = weighted_sum / sum_of_scores) 
-```
+
 
 ```{r}
 ggplot(anime_clean, aes(x = Year_Premiered, y = Score)) +
@@ -347,6 +330,8 @@ ggplot(anime_clean, aes(x = Year_Premiered, y = Score)) +
        y = "Average Score") +
   theme_minimal()
 ```
+
+Part 4: Modelling
 
 ```{r}
 model_data <- anime_clean %>%
