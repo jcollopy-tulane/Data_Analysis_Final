@@ -340,4 +340,6 @@ model_data <- anime_clean %>%
 model_data
 ```
 
-
+```{r}
+write_csv(model_data, "model_data.csv")
+```
