@@ -1,0 +1,382 @@
+---
+title: "Anime Data"
+author: "John Collopy"
+date: "9/21/2023"
+output: html_document
+---
+
+Introduction:
+
+
+Step 1: Data Collection
+
+Our dataset can be found [here](https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020) on Kaggle. We chose to use this dataset because it contains exhaustive information about a large collection of anime entertainment.
+
+Here is the list of features contained in the dataset:
+
+1. MAL_ID: MyAnimelist ID of the anime. (e.g. 1)
+2. Name: full name of the anime. (e.g. Cowboy Bebop)
+3. Score: average score of the anime given from all users in MyAnimelist database. (e.g. 8.78)
+4. Genres: comma separated list of genres for this anime. (e.g. Action, Adventure, Comedy, Drama, Sci-Fi, Space)
+5. English name: full name in english of the anime. (e.g. Cowboy Bebop)
+6. Japanese name: full name in japanses of the anime. (e.g. カウボーイビバップ)
+7. Type: TV, movie, OVA, etc. (e.g. TV)
+8. Episodes': number of chapters. (e.g. 26)
+9. Aired: broadcast date. (e.g. Apr 3, 1998 to Apr 24, 1999)
+10. Premiered: season premiere. (e.g. Spring 1998)
+11. Producers: comma separated list of produducers (e.g. Bandai Visual)
+12. Licensors: comma separated list of licensors (e.g. Funimation, Bandai Entertainment)
+13. Studios: comma separated list of studios (e.g. Sunrise)
+14. Source: Manga, Light novel, Book, etc. (e.g Original)
+15. Duration: duration of the anime per episode (e.g 24 min. per ep.)
+16. Rating: age rate (e.g. R - 17+ (violence & profanity))
+17. Ranked: position based in the score. (e.g 28)
+18. Popularity: position based in the the number of users who have added the anime to their list. (e.g 39)
+19. Members: number of community members that are in this anime's "group". (e.g. 1251960)
+20. Favorites: number of users who have the anime as "favorites". (e.g. 61,971)
+21. Watching: number of users who are watching the anime. (e.g. 105808)
+22. Completed: number of users who have complete the anime. (e.g. 718161)
+23. On-Hold: number of users who have the anime on Hold. (e.g. 71513)
+24. Dropped: number of users who have dropped the anime. (e.g. 26678)
+25. Plan to Watch': number of users who plan to watch the anime. (e.g. 329800)
+26. Score-10': number of users who scored 10. (e.g. 229170)
+27. Score-9': number of users who scored 9. (e.g. 182126)
+28. Score-8': number of users who scored 8. (e.g. 131625)
+29. Score-7': number of users who scored 7. (e.g. 62330)
+30. Score-6': number of users who scored 6. (e.g. 20688)
+31. Score-5': number of users who scored 5. (e.g. 8904)
+32. Score-4': number of users who scored 4. (e.g. 3184)
+33. Score-3': number of users who scored 3. (e.g. 1357)
+34. Score-2': number of users who scored 2. (e.g. 741)
+35. Score-1': number of users who scored 1. (e.g. 1580)
+
+Below: we import the necessary libraries,upload the dataset, and view the first 5 rows.
+
+```{r}
+# Importing the necessary libraries
+library(tidyverse)
+install.packages("stringi")
+library(stringi)
+install.packages("stringdist")
+library(stringdist)
+```
+
+```{r}
+# Importing the data
+anime <- read.csv("anime.csv")
+anime
+```
+
+Step 2: ETL
+
+Our data now needs to be prepared for modeling. Firstly, it is important to check if there are any null or missing values in the data frame.
+
+```{r}
+null_values <- is.na(anime)
+null_counts <- colSums(null_values)
+null_counts
+```
+
+
+Since there are no null values, the data frame can be prepped for modelling. The first column to amend is the "Genres" column. First, let's look at the column.
+
+```{r}
+head(anime$Genres)
+```
+
+Next, let's check what type of data is in the column.
+
+```{r}
+typeof(anime$Genres)
+```
+
+Next, let's check how many times each genre appears in the column.
+
+```{r}
+genre_counts <- anime %>%
+  separate_rows(Genres, sep = ", ") %>%
+  group_by(Genres) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+print(genre_counts)
+```
+
+
+For our project, we want to remove entertainment that includes explicit content and whose genre is unknown, so we create a new data frame without the undesired entertainment.
+
+```{r}
+# Removing non-family friendly content
+unclean <- c("Hentai", "Ecchi", "Harem", "Yaoi", "Yuri", "Unknown")
+anime_clean <- anime[ !grepl(paste(unclean, collapse="|"), anime$Genres),]
+```
+
+Now, we can check
+```{r}
+genre_counts_1 <- anime_clean %>%
+  separate_rows(Genres, sep = ", ") %>%
+  group_by(Genres) %>%
+  summarize(count = n())%>%
+  arrange(desc(count))
+
+# Display the result
+print(genre_counts_1)
+```
+Now, we can create Dummy Variables for the "Genres" column.
+```{r}  
+# Creating Dummy Variables For Genre
+anime_clean <- anime_clean %>%
+  mutate(Genres = strsplit(Genres, ", ")) %>%
+  unnest(Genres) %>%
+  distinct() %>%
+  mutate(dummy = 1) %>%
+  spread(Genres, dummy, fill = 0)
+
+head(anime_clean)
+```
+
+Now, we evaluate the "Rating" column. First, let's check for each rating that appears.
+```{r}
+unique(anime_clean$Rating)
+```
+
+Since we do not want explicit content nor content we do not know much about, we remove such entertainment.
+```{r}
+# Removing shows containing nudity
+undesired <- c("Mild Nudity", "Unknown")
+anime_clean <- anime_clean[ !grepl(paste(undesired, collapse="|"), anime_clean$Rating),]
+unique(anime_clean$Rating)
+```
+
+Now, we can create Dummy Variables for Rating.
+```{r}
+dummy_variables <- model.matrix(~ Rating - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+head(anime_clean)
+```
+
+Now, we evaluate the "Type" column. First, let's check for each rating that appears.
+```{r}
+unique(anime_clean$Type)
+```
+
+We remove entertainment with an unknown Type.
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Type),]
+unique(anime_clean$Type)
+```
+
+Now, we can create Dummy Variables for Type.
+```{r}
+dummy_variables <- model.matrix(~ Type - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+head(anime_clean)
+```
+
+Next, we check the dates that all of the animes aired. First, we take a look at the column.
+
+```{r}
+head(anime_clean$Aired)
+```
+
+Next, we extract the year that the anime aired.
+
+```{r}
+# Extracting the year the anime aired
+after_comma <- sub(".*,", "", anime_clean$Aired)
+anime_clean$Year_Premiered <- substr(after_comma, 1, 5)
+unique(anime_clean$Year_Premiered)
+```
+
+Next, we remove all shows that do not have a known air date.
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unkno", collapse="|"), anime_clean$Year_Premiered),]
+unique(anime_clean$Year_Premiered)
+```
+
+Next, we make the column numeric.
+
+```{r}
+anime_clean$Year_Premiered <- as.numeric(anime_clean$Year_Premiered)
+```
+
+Next, we check the "Source" column.
+
+```{r}
+unique(anime_clean$Source)
+```
+
+Then, we remove shows that do not have a known source.
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Source),]
+unique(anime_clean$Source)
+```
+
+Then, we create Dummy Variables
+```{r}
+dummy_variables <- model.matrix(~ Source - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+print(anime_clean)
+```
+
+Next, we check the "Score" column.
+
+```{r}
+unique(anime_clean$Score)
+```
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Score),]
+```
+
+```{r}
+anime_clean$Score <- as.numeric(anime_clean$Score)
+```
+
+Next, we create the data frame that we will use for our modelling.
+
+```{r}
+colnames(anime_clean)
+```
+
+Step 3: Data Visualization
+
+We will use this section to create figures that will provide insight into our data. In order to do so, we will use the ggplot2 library. 
+
+```{r}
+library(ggplot2)
+```
+
+```{r}
+ggplot(anime_clean, aes(x = Year_Premiered)) +
+  geom_bar() +
+  labs(title = "Frequency of Each Year Premiered",
+       x = "Year Premiered",
+       y = "Frequency") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+
+Next, we shall check how often each Type appears in our data set.
+
+```{r}
+# Creating the barplot
+ggplot(anime_clean, aes(x = Type)) +
+  geom_bar() +
+  labs(title = "Frequency of Each Type",
+       x = "Type of Anime",
+       y = "Frequency")
+```
+
+Then, we shall check how often each Rating appears in our data set.
+```{r}
+# Creating the barplot
+
+ggplot(anime_clean, aes(x = Rating)) +
+  geom_bar() +
+  labs(title = "Frequency of Each Rating",
+       x = "Rating",
+       y = "Frequency")
+```
+
+```{r}
+average_ratings_type <- anime_clean %>%
+  group_by(Type) %>%
+  summarize(mean_rating = mean(Score))
+
+ggplot(anime_clean, aes(x = Type, y = as.numeric(Score))) +
+  stat_summary(fun = "mean", geom = "col") +
+  geom_text(data = average_ratings_type, aes(label = sprintf("%.2f", mean_rating), y = mean_rating + 0.1), vjust = -0.5) +
+  scale_y_continuous(limits = c(0, 10)) +
+  labs(title = "Average Score for Each Type",
+       x = "Type",
+       y = "Average Score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+average_ratings_rating <- anime_clean %>%
+  group_by(Rating) %>%
+  summarize(mean_rating = mean(Score))
+
+ggplot(anime_clean, aes(x = Rating, y = as.numeric(Score))) +
+  stat_summary(fun = "mean", geom = "col") +
+  geom_text(data = average_ratings_rating, aes(label = sprintf("%.2f", mean_rating), y = mean_rating + 0.1), vjust = -0.5) +
+  scale_y_continuous(limits = c(0, 10)) +
+  labs(title = "Average Score for Each Rating",
+       x = "Rating",
+       y = "Average Score") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+
+```{r}
+ggplot(anime_clean, aes(x = Year_Premiered, y = Score)) +
+  geom_point(stat = "summary", fun = mean, color = "blue") +
+  labs(title = "Average Score Over Time",
+       x = "Year Premiered",
+       y = "Average Score") +
+  theme_minimal()
+```
+
+Part 4: Modelling
+
+```{r}
+model_data <- anime_clean %>%
+  select(-c(5:34))
+
+model_data
+```
+
+```{r}
+print(write_csv(model_data, "model_data.csv"))
+```
+From here, we can now begin constructing our model. We will first use spectral analysis to find the number of clusters, and then use this value to perform k-means. 
+
+We first perform a spectral analysis of the continuous type data. 
+```{r}
+model_data_cts = subset(model_data, select = c(Name, Score))
+cts_dist_matrix = as.matrix(dist(model_data_cts))
+cts_dist_matrix = cts_dist_matrix / max(cts_dist_matrix) # Normalize between 0 and 1
+
+```
+Next we perform a spectral analysis of the categorical type data.
+```{r}
+install.packages("cultevo")
+library(cultevo)
+model_data_cat = subset(model_data, select = -c(MAL_ID, Score, English.name))
+model_data_cat 
+
+cat_hamming_matrix = hammingdists(model_data_cat)
+str(cat_hamming_matrix)
+```
+We from here now construct the dissimilarity matrix $J$ and then compute the affinity matrix $A$ and Laplacian matrix $L$. From there, we compute the eigenvalues and see how many are close to 0 to determine the number of clusters to be used for k-means. 
+```{r}
+w = 0.5 # tuning parameter
+J = (1-w) * cts_dist_matrix + w * cat_hamming_matrix
+
+d = 4 # tuning parameter
+A = exp(-(J %*% J)/(2 * d^2))
+
+D = diag(rowSums(A)) 
+
+L = D - A
+L_ev = eigen(L)$values
+```
+And now we
