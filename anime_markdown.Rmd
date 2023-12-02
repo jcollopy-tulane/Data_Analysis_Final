@@ -255,72 +255,57 @@ We will use this section to create figures that will provide insight into our da
 
 ```{r}
 library(ggplot2)
+library(knitr)
+library(kableExtra)
+install.packages("DT")
+library(DT)
 ```
 
 ```{r}
-ggplot(anime_clean, aes(x = Year_Premiered)) +
-  geom_bar() +
-  labs(title = "Frequency of Each Year Premiered",
-       x = "Year Premiered",
-       y = "Frequency") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+year_freq <- anime_clean %>%
+  group_by(Year_Premiered) %>%
+  summarize(Count = n())
+
+ggplot(year_freq, aes(x = Year_Premiered, y = Count, fill = Count)) + 
+  geom_col() +
+  labs(title = "Amount of Content Produced Across Years", x = "Year Premiered", y = "Count") +
+  scale_fill_viridis_b()
+  theme_minimal()
 ```
+
 
 Next, we shall check how often each Type appears in our data set.
 
 ```{r}
-# Creating the barplot
-ggplot(anime_clean, aes(x = Type)) +
-  geom_bar() +
-  labs(title = "Frequency of Each Type",
-       x = "Type of Anime",
-       y = "Frequency")
+type_freq <- anime_clean %>%
+  group_by(Type) %>%
+  summarize(count = n())
+
+type_freq
 ```
+
+
 
 Then, we shall check how often each Rating appears in our data set.
-```{r}
-# Creating the barplot
 
-ggplot(anime_clean, aes(x = Rating)) +
-  geom_bar() +
-  labs(title = "Frequency of Each Rating",
-       x = "Rating",
-       y = "Frequency")
-```
+
 
 ```{r}
-average_ratings_type <- anime_clean %>%
-  group_by(Type) %>%
-  summarize(mean_rating = mean(Score))
-
-ggplot(anime_clean, aes(x = Type, y = as.numeric(Score))) +
-  stat_summary(fun = "mean", geom = "col") +
-  geom_text(data = average_ratings_type, aes(label = sprintf("%.2f", mean_rating), y = mean_rating + 0.1), vjust = -0.5) +
-  scale_y_continuous(limits = c(0, 10)) +
-  labs(title = "Average Score for Each Type",
-       x = "Type",
-       y = "Average Score") +
-  theme_minimal() +
+ggplot(anime_clean, aes(Type, Score)) + 
+  geom_boxplot(aes(fill = Type))  +
+  stat_summary(fun = "mean", geom = "text", aes(label = round(..y.., 2)),
+               vjust = -1, color = "Black", size = 3) +
+  labs(title = "Distribution of Scores for Each Type of Media")
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-
 ```{r}
-average_ratings_rating <- anime_clean %>%
-  group_by(Rating) %>%
-  summarize(mean_rating = mean(Score))
-
-ggplot(anime_clean, aes(x = Rating, y = as.numeric(Score))) +
-  stat_summary(fun = "mean", geom = "col") +
-  geom_text(data = average_ratings_rating, aes(label = sprintf("%.2f", mean_rating), y = mean_rating + 0.1), vjust = -0.5) +
-  scale_y_continuous(limits = c(0, 10)) +
-  labs(title = "Average Score for Each Rating",
-       x = "Rating",
-       y = "Average Score") +
-  theme_minimal() +
+ggplot(anime_clean, aes(Rating, Score)) + 
+  geom_boxplot(aes(fill = Rating)) +
+  stat_summary(fun = "mean", geom = "text", aes(label = round(..y.., 2)),
+               vjust = -1, color = "Black", size = 3) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
-
 
 ```{r}
 ggplot(anime_clean, aes(x = Year_Premiered, y = Score)) +
