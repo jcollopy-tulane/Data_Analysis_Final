@@ -5,10 +5,11 @@ date: "9/21/2023"
 output: html_document
 ---
 
-Introduction:
+### Introduction:
 
+The goal of our project is to build build an anime recommendation system. This project is inspired by the popularity of anime media, hence, we want to create a tool that would allow users to input in a series of anime titles they enjoyed and then receive a collection of new anime titles they may enjoy.
 
-Step 1: Data Collection
+### Step 1: Data Collection
 
 Our dataset can be found [here](https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020) on Kaggle. We chose to use this dataset because it contains exhaustive information about a large collection of anime entertainment.
 
@@ -50,20 +51,18 @@ Here is the list of features contained in the dataset:
 34. Score-2': number of users who scored 2. (e.g. 741)
 35. Score-1': number of users who scored 1. (e.g. 1580)
 
+This dataset is limited in some regards, largely because it contains animes made exclusively before 2020. That being said, it still contains information about 17.562 anime and the preference from 325.772 different users, as well as relevant features, and so we believe this dataset will allow us to create an effective recommendation tool.
+
 Below: we import the necessary libraries,upload the dataset, and view the first 5 rows.
 
 ```{r}
-# Importing the necessary libraries
+# Importing the necessary libraries and data
 library(tidyverse)
-```
-
-```{r}
-# Importing the data
 anime <- read.csv("anime.csv")
 head(anime)
 ```
 
-Step 2: ETL
+### Step 2: ETL
 
 Our data now needs to be prepared for modeling. Firstly, it is important to check if there are any null or missing values in the data frame.
 
@@ -74,7 +73,7 @@ null_counts
 ```
 
 
-Since there are no null values, the data frame can be prepped for modelling. The first column to amend is the "Genres" column. First, let's look at the column.
+Since there are no null values, the data frame can be prepped for modeling. The first column to amend is the "Genres" column. First, let's look at the column.
 
 ```{r}
 head(anime$Genres)
@@ -98,7 +97,6 @@ genre_counts <- anime %>%
 print(genre_counts)
 ```
 
-
 For our project, we want to remove entertainment that includes explicit content and whose genre is unknown, so we create a new data frame without the undesired entertainment.
 
 ```{r}
@@ -107,7 +105,8 @@ unclean <- c("Hentai", "Ecchi", "Harem", "Yaoi", "Yuri", "Unknown")
 anime_clean <- anime[ !grepl(paste(unclean, collapse="|"), anime$Genres),]
 ```
 
-Now, we can check
+Now, we can re-check the counts.
+
 ```{r}
 genre_counts_1 <- anime_clean %>%
   separate_rows(Genres, sep = ", ") %>%
@@ -118,6 +117,7 @@ genre_counts_1 <- anime_clean %>%
 # Display the result
 print(genre_counts_1)
 ```
+
 Now, we can create Dummy Variables for the "Genres" column.
 ```{r}  
 # Creating Dummy Variables For Genre
@@ -144,7 +144,7 @@ anime_clean <- anime_clean[ !grepl(paste(undesired, collapse="|"), anime_clean$R
 unique(anime_clean$Rating)
 ```
 
-Now, we can create Dummy Variables for Rating.
+Now, we can create Dummy Variables for "Rating".
 ```{r}
 dummy_variables <- model.matrix(~ Rating - 1, data = anime_clean)
 
@@ -161,12 +161,14 @@ unique(anime_clean$Type)
 ```
 
 We remove entertainment with an unknown Type.
+
 ```{r}
 anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Type),]
 unique(anime_clean$Type)
 ```
 
 Now, we can create Dummy Variables for Type.
+
 ```{r}
 dummy_variables <- model.matrix(~ Type - 1, data = anime_clean)
 
@@ -199,10 +201,10 @@ anime_clean <- anime_clean[ !grepl(paste("Unkno", collapse="|"), anime_clean$Yea
 unique(anime_clean$Year_Premiered)
 ```
 
-Next, we make the column numeric.
+Next, we make the column the correct type.
 
 ```{r}
-anime_clean$Year_Premiered <- as.numeric(anime_clean$Year_Premiered)
+anime_clean$Year_Premiered <- as.factor(anime_clean$Year_Premiered)
 ```
 
 Next, we check the "Source" column.
@@ -219,6 +221,7 @@ unique(anime_clean$Source)
 ```
 
 Then, we create Dummy Variables
+
 ```{r}
 dummy_variables <- model.matrix(~ Source - 1, data = anime_clean)
 
@@ -249,17 +252,15 @@ Next, we create the data frame that we will use for our modelling.
 colnames(anime_clean)
 ```
 
-Step 3: Data Visualization
+### Step 3: Data Visualization
 
 We will use this section to create figures that will provide insight into our data. In order to do so, we will use the ggplot2 library. 
 
 ```{r}
 library(ggplot2)
-library(knitr)
-library(kableExtra)
-install.packages("DT")
-library(DT)
 ```
+
+First, let's look at the number of animes made over time.
 
 ```{r}
 year_freq <- anime_clean %>%
@@ -273,6 +274,18 @@ ggplot(year_freq, aes(x = Year_Premiered, y = Count, fill = Count)) +
   theme_minimal()
 ```
 
+Unsurprisingly, animes have become very popular over time, particularly at the start of the 20th century. Next, let's see if the quality of anime has improved over time.
+
+```{r}
+ggplot(anime_clean, aes(x = Year_Premiered, y = Score)) +
+  geom_point(stat = "summary", fun = mean, color = "blue") +
+  labs(title = "Average Score Over Time",
+       x = "Year Premiered",
+       y = "Average Score") +
+  theme_minimal()
+```
+
+The chart above suggests a positive relationship between Mean Score and Year. This would suggest that viewers like modern animes more than older animes.
 
 Next, we shall check how often each Type appears in our data set.
 
@@ -284,11 +297,17 @@ type_freq <- anime_clean %>%
 type_freq
 ```
 
-
-
 Then, we shall check how often each Rating appears in our data set.
 
+```{r}
+type_rating <- anime_clean %>%
+  group_by(Rating) %>%
+  summarize(count = n())
 
+type_rating
+```
+
+Then, we can check the distribution of Score for each Type.
 
 ```{r}
 ggplot(anime_clean, aes(Type, Score)) + 
@@ -299,6 +318,10 @@ ggplot(anime_clean, aes(Type, Score)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
+As we can see in the box-plot, TV shows earn the highest mean score. Also, none of the distributions appear to have a terribly strong skew. Additionally, the outliers almost exclusively exist below the mean, indicating that there are more terrible shows than outstanding ones.
+
+Lastly, we can check for the distribution of scores for each Rating.
+
 ```{r}
 ggplot(anime_clean, aes(Rating, Score)) + 
   geom_boxplot(aes(fill = Rating)) +
@@ -307,24 +330,19 @@ ggplot(anime_clean, aes(Rating, Score)) +
   theme(axis.text.x = element_text(angle = 45, hjust = 1))
 ```
 
-```{r}
-ggplot(anime_clean, aes(x = Year_Premiered, y = Score)) +
-  geom_point(stat = "summary", fun = mean, color = "blue") +
-  labs(title = "Average Score Over Time",
-       x = "Year Premiered",
-       y = "Average Score") +
-  theme_minimal()
-```
+As we can see in the box-plot, as content increases in maturity, the mean score increases. The scores for each type seem to have mild skewness, but nothing grievous. 
 
-Part 4: Modelling
+### Part 4: Modeling
 
+Below, we create the dataset with all columns necessary for building the model.
 ```{r}
+# Creating the dataset for modeling
 model_data <- anime_clean %>%
   select(-c(5:34))
-
-model_data
+head(model_data)
 ```
 
 ```{r}
+# Saving the data
 write_csv(model_data, "model_data.csv")
 ```
