@@ -7,7 +7,7 @@ output: html_document
 
 ### Introduction:
 
-The goal of our project is to build build an anime recommendation system. This project is inspired by the popularity of anime media, hence, we want to create a tool that would allow users to input in a series of anime titles they enjoyed and then receive a collection of new anime titles they may enjoy.
+The goal of our project is to build build an anime recommendation system. As anime is a popular form of entertainment, we want to create a tool that would allow users to input in a series of anime titles they enjoyed and then receive a collection of new anime titles they may enjoy.
 
 ### Step 1: Data Collection
 
@@ -53,7 +53,7 @@ Here is the list of features contained in the dataset:
 
 This dataset is limited in some regards, largely because it contains animes made exclusively before 2020. That being said, it still contains information about 17.562 anime and the preference from 325.772 different users, as well as relevant features, and so we believe this dataset will allow us to create an effective recommendation tool.
 
-Below: we import the necessary libraries,upload the dataset, and view the first 5 rows.
+Below: we import the necessary libraries, upload the dataset, and view the first 5 rows.
 
 ```{r}
 # Importing the necessary libraries and data
@@ -238,29 +238,29 @@ Next, we check the "Score" column.
 unique(anime_clean$Score)
 ```
 
+We then remove all shows without a listed score.
+
 ```{r}
 anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Score),]
 ```
+
+We then convert all scores to numeric.
 
 ```{r}
 anime_clean$Score <- as.numeric(anime_clean$Score)
 ```
 
-Next, we create the data frame that we will use for our modelling.
+Our data is now ready for modeling.
 
-```{r}
-colnames(anime_clean)
-```
+### Step 3: Exploratory Data Analysis and Data Visualization
 
-### Step 3: Data Visualization
-
-We will use this section to create figures that will provide insight into our data. In order to do so, we will use the ggplot2 library. 
+Before building our model, we will use this section to create figures that will provide insight into our data. In order to do so, we will use the ggplot2 library. 
 
 ```{r}
 library(ggplot2)
 ```
 
-First, let's look at the number of animes made over time.
+First, let's look at the distribution of animes made over time.
 
 ```{r}
 year_freq <- anime_clean %>%
