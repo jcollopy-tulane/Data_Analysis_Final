@@ -1,0 +1,458 @@
+---
+title: "Developing an Anime Recommendation System"
+author: "John Collopy and Nathaniel Vaduthala"
+date: "12/14/2023"
+output: html_document
+---
+
+# Introduction:
+
+Within the past decade, the popularity of anime as a medium has exploded, resulting in more viewers than ever before. With this in mind, the goal of our project was to develop an anime recommendation system using data from MyAnimeList, an anime social networking and catalouging site with over 18 million users. We use data involving information regarding each anime their average user rating.  
+
+# Step 1: Data Collection
+
+Our dataset can be found [here](https://www.kaggle.com/datasets/hernan4444/anime-recommendation-database-2020) on Kaggle. We chose to use this dataset because it contains exhaustive information about a large collection of anime entertainment.
+
+Here is the list of features contained in the dataset:
+
+1. MAL_ID: MyAnimelist ID of the anime. (e.g. 1)
+2. Name: full name of the anime. (e.g. Cowboy Bebop)
+3. Score: average score of the anime given from all users in MyAnimelist database. (e.g. 8.78)
+4. Genres: comma separated list of genres for this anime. (e.g. Action, Adventure, Comedy, Drama, Sci-Fi, Space)
+5. English name: full name in English of the anime. (e.g. Cowboy Bebop)
+6. Japanese name: full name in Japanses of the anime. (e.g. カウボーイビバップ)
+7. Type: TV, movie, OVA (animations sent directly to home vido formats), etc. (e.g. TV)
+8. Episodes: number of chapters. (e.g. 26)
+9. Aired: broadcast date. (e.g. Apr 3, 1998 to Apr 24, 1999)
+10. Premiered: season premiere. (e.g. Spring 1998)
+11. Producers: comma separated list of producers (e.g. Bandai Visual)
+12. Licensors: comma separated list of licensors (e.g. Funimation, Bandai Entertainment)
+13. Studios: comma separated list of studios (e.g. Sunrise)
+14. Source: Manga, Light novel, Book, etc. (e.g Original)
+15. Duration: duration of the anime per episode (e.g 24 min. per ep.)
+16. Rating: age rate (e.g. R - 17+ (violence & profanity))
+17. Ranked: position based in the score. (e.g 28)
+18. Popularity: position based in the the number of users who have added the anime to their list. (e.g 39)
+19. Members: number of community members that are in this anime's "group". (e.g. 1251960)
+20. Favorites: number of users who have the anime as "favorites". (e.g. 61,971)
+21. Watching: number of users who are watching the anime. (e.g. 105808)
+22. Completed: number of users who have complete the anime. (e.g. 718161)
+23. On-Hold: number of users who have the anime on Hold. (e.g. 71513)
+24. Dropped: number of users who have dropped the anime. (e.g. 26678)
+25. Plan to Watch': number of users who plan to watch the anime. (e.g. 329800)
+26. Score-10: number of users who scored 10. (e.g. 229170)
+27. Score-9: number of users who scored 9. (e.g. 182126)
+28. Score-8: number of users who scored 8. (e.g. 131625)
+29. Score-7: number of users who scored 7. (e.g. 62330)
+30. Score-6: number of users who scored 6. (e.g. 20688)
+31. Score-5: number of users who scored 5. (e.g. 8904)
+32. Score-4: number of users who scored 4. (e.g. 3184)
+33. Score-3: number of users who scored 3. (e.g. 1357)
+34. Score-2: number of users who scored 2. (e.g. 741)
+35. Score-1: number of users who scored 1. (e.g. 1580)
+
+Below: we import the necessary libraries, upload the dataset, and view the first 5 rows.
+
+```{r setup} 
+knitr::opts_chunk$set(warning = FALSE, message = FALSE) 
+# Importing the necessary libraries
+library(tidyverse)
+#install.packages("stringi")
+library(stringi)
+#install.packages("magrittr") 
+#install.packages("dplyr")    
+library(magrittr) 
+library(dplyr)  
+library(ggplot2)
+#install.packages('StatMatch')
+library(StatMatch)
+```
+
+```{r}
+# Importing the data
+anime <- read.csv("anime.csv")
+head(anime)
+```
+
+# Step 2: Extract, Transform, and Load 
+
+Our data now needs to be prepared for modeling. Firstly, it is important to check if there are any null or missing values in the data frame.
+
+```{r}
+null_values <- is.na(anime)
+null_counts <- colSums(null_values)
+null_counts
+```
+
+
+Since there are no null values, the data frame can be prepped for modelling. The first column to amend is the "Genres" column. First, let's look at the column.
+
+```{r}
+head(anime$Genres)
+```
+
+Next, let's check what type of data is in the column.
+
+```{r}
+typeof(anime$Genres)
+```
+
+Next, let's check how many times each genre appears in the column.
+
+```{r}
+genre_counts <- anime %>%
+  separate_rows(Genres, sep = ", ") %>%
+  group_by(Genres) %>%
+  summarize(count = n()) %>%
+  arrange(desc(count))
+
+print(genre_counts)
+```
+
+
+For our project, we want to remove entertainment that includes explicit content and whose genre is unknown, so we create a new data frame without the undesired entertainment.
+
+```{r}
+# Removing non-family friendly content
+unclean <- c("Hentai", "Ecchi", "Harem", "Yaoi", "Yuri", "Unknown")
+anime_clean <- anime[ !grepl(paste(unclean, collapse="|"), anime$Genres),]
+```
+
+Now, we can check
+```{r}
+genre_counts_1 <- anime_clean %>%
+  separate_rows(Genres, sep = ", ") %>%
+  group_by(Genres) %>%
+  summarize(count = n())%>%
+  arrange(desc(count))
+
+# Display the result
+print(genre_counts_1)
+```
+Now, we can create Dummy Variables for the "Genres" column. This will be used later when we cluster on the categorical variables.
+```{r}  
+# Creating Dummy Variables For Genre
+anime_clean <- anime_clean %>%
+  mutate(Genres = strsplit(Genres, ", ")) %>%
+  unnest(Genres) %>%
+  distinct() %>%
+  mutate(dummy = 1) %>%
+  spread(Genres, dummy, fill = 0)
+
+head(anime_clean)
+```
+
+Now, we evaluate the "Rating" column. First, let's check for each rating that appears.
+```{r}
+unique(anime_clean$Rating)
+```
+
+Since we do not want explicit content nor content we do not know much about, we remove such entertainment.
+```{r}
+# Removing shows containing nudity
+undesired <- c("Mild Nudity", "Unknown")
+anime_clean <- anime_clean[ !grepl(paste(undesired, collapse="|"), anime_clean$Rating),]
+unique(anime_clean$Rating)
+```
+
+Now, we can create Dummy Variables for Rating, as this will be used for our clustering.
+```{r}
+dummy_variables <- model.matrix(~ Rating - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+head(anime_clean)
+```
+
+Now, we evaluate the "Type" column. First, let's check for each rating that appears.
+```{r}
+unique(anime_clean$Type)
+```
+
+We remove entertainment with an unknown Type.
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Type),]
+unique(anime_clean$Type)
+```
+
+Now, we can create Dummy Variables for Type.
+```{r}
+dummy_variables <- model.matrix(~ Type - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+head(anime_clean)
+```
+
+Next, we check the dates that all of the animes aired. First, we take a look at the column.
+
+```{r}
+head(anime_clean$Aired)
+```
+
+Next, we extract the year that the anime aired.
+
+```{r}
+# Extracting the year the anime aired
+after_comma <- sub(".*,", "", anime_clean$Aired)
+anime_clean$Year_Premiered <- substr(after_comma, 1, 5)
+unique(anime_clean$Year_Premiered)
+```
+
+Next, we remove all shows that do not have a known air date.
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unkno", collapse="|"), anime_clean$Year_Premiered),]
+unique(anime_clean$Year_Premiered)
+```
+
+Next, we make the column numeric.
+
+```{r}
+anime_clean$Year_Premiered <- as.numeric(anime_clean$Year_Premiered)
+```
+
+Next, we check the "Source" column.
+
+```{r}
+unique(anime_clean$Source)
+```
+
+Then, we remove shows that do not have a known source.
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Source),]
+unique(anime_clean$Source)
+```
+
+Then, we create Dummy Variables
+```{r}
+dummy_variables <- model.matrix(~ Source - 1, data = anime_clean)
+
+# Combine the dummy variables with the original data frame
+anime_clean <- cbind(anime_clean, dummy_variables)
+
+# Print the result
+head(anime_clean)
+```
+
+Next, we check the "Score" column.
+
+```{r}
+unique(anime_clean$Score)
+```
+
+```{r}
+anime_clean <- anime_clean[ !grepl(paste("Unknown", collapse="|"), anime_clean$Score),]
+```
+
+```{r}
+anime_clean$Score <- as.numeric(anime_clean$Score)
+```
+
+Next, we check the column names to make sure all information is accounted for. 
+
+```{r}
+colnames(anime_clean)
+```
+
+# Step 3: Data Visualization
+
+We will use this section to create figures that will provide insight into our data. In order to do so, we will use the ggplot2 library. 
+
+```{r}
+year_freq <- anime_clean %>%
+  group_by(Year_Premiered) %>%
+  summarize(Count = n())
+
+ggplot(year_freq, aes(x = Year_Premiered, y = Count, fill = Count)) + 
+  geom_col() +
+  labs(title = "Amount of Content Produced Across Years", x = "Year Premiered", y = "Count") +
+  scale_fill_viridis_b()
+  #theme_minimal() 
+```
+
+We can see that there has been an enormous boost in anime production within the past two decades. A possible explanation is that anime has become more and more popular, resulting in anime studios creating more and more series to meet the demand. 
+
+Next, we shall check how often each Type appears in our data set.
+
+```{r}
+# Creating the barplot
+type_freq <- anime_clean %>%
+  group_by(Type) %>%
+  summarize(count = n())
+
+type_freq
+```
+
+We see the majority of anime series are TV series, with the second largest type being movie. A possible explanation is because many anime series are based off of manga works, which are typically longer and contain multiple chapters or volumes, resulting in their anime adaptation to be in TV format. 
+
+Then, we shall check how often each Rating appears in our data set.
+```{r}
+type_rating <- anime_clean %>%
+  group_by(Rating) %>%
+  summarize(count = n())
+
+type_rating
+```
+
+We see that the vast majority of anime series are rated PG-13, with the second largest category being rated G. A possible explanation is that many anime fans are interested in PG-13 themes and content, possibly because it is seen as acceptable for a wide array of audiences. As a result, anime studios can produce anime that become more popular. In contrast, series rated R would mostly be appealing for older audiences, resulting in a more limited fanbase. 
+
+Now let's see if there is any relationship between an anime's type and its average rating. 
+```{r}
+ggplot(anime_clean, aes(Type, Score)) + 
+  geom_boxplot(aes(fill = Type))  +
+  stat_summary(fun = "mean", geom = "text", aes(label = round(..y.., 2)),
+               vjust = -1, color = "Black", size = 3) +
+  labs(title = "Distribution of Scores for Each Type of Media")
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+We see that there seems to be no strong relationship between an anime's type and its average rating. This seems to imply that users are impartial to what type the anime is. With that being said, we can note that TV series had the highest average rating. Also, none of the distributions appear to have a terribly strong skew. Additionally, the outliers almost exclusively exist below the mean, indicating that there are more terrible shows than outstanding ones.
+
+Now we see if there is a relationship between anime ratings and type. 
+
+```{r}
+ggplot(anime_clean, aes(Rating, Score)) + 
+  geom_boxplot(aes(fill = Rating)) +
+  stat_summary(fun = "mean", geom = "text", aes(label = round(..y.., 2)),
+               vjust = -1, color = "Black", size = 3) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+```
+
+As we can see in the box-plot, as content increases in maturity, the mean score increases. The scores for each type seem to have mild skewness, but nothing grievous. It should be noted that the average ratings between the two are relatively similar. A possible explanation is that, if an anime is rated R or PG-13, the creators may be able to explore more ideas or content that is more mature, and as a result may be of higher quality, while creators of G or PG rated anime will have more restrictions. 
+
+Now we see how if there is any relationship between an anime's publishing year and rating. 
+
+```{r}
+ggplot(anime_clean, aes(x = Year_Premiered, y = Score)) +
+  geom_point(stat = "summary", fun = mean, color = "blue") +
+  labs(title = "Average Score Over Time",
+       x = "Year Premiered",
+       y = "Average Score") +
+  theme_minimal()
+```
+
+We see that anime released more recently tend to have higher ratings. A possible explanation is that many of the reviews are from users in the modern day, and so they may find themes, styles, tropes, or content present in older anime to be not as entertaining as those in modern series. Another explanation is that, as time passed, anime studios became more proficient in developing entertaining anime. 
+
+# Part 4: Modelling
+
+We now begin constructing our model. We will be using k-means. In order to find the appropriate $k$, we will be performing the "eigengap" method and then double check via silhouette scores. We first will construct a similarity matrix $A$ using our data. From there, we construct the graph Laplacian $L = D^{-1/2}LD^{-1/2}$, where $D$ is a diagonal matrix such that $D_{ii}$ is equal to the sum of the elements of the $i$th row of $A$. Finally, we compute the eigenvalues of $L$, and we let $k$ be the algebraic multiplicity of the 0 eigenvalue. This is because the number of 0 eigenvalues equals the number of connected component in a graph. Once we have constructed the clusters, we will then provide recommendations by inputting in some anime series as examples, and choosing some of the top rated series in the same cluster.
+
+We first clean the data to only keep variables that will be used to develop our model.
+
+```{r}
+model_data <- anime_clean %>%
+  select(-c(5:34))
+
+head(model_data)
+```
+
+From here, we can now begin constructing our model. We will first use spectral analysis to find the number of clusters, and then use this value to perform k-means. 
+
+We first construct the dissimilarity matrix, where we will use the Gower's distance. Gower's distance is defined as $D_{Gower}(x_i, y_j) = \frac{\sum_{k=1}^n s_{ijk}\delta_{ijk}}{\sum_{k=1}^n \delta_{ijk}}$, where $x_i = (x_{i1}, x_{i2}, \dots, x_{in})$ and $x_j = (x_{j2}, \dots, x_{jn})$ are two features. $\delta_{ijk}$ is 0 or 1 depending on if $x_i$ ad $x_j$ can be meaningfully compared. 
+
+For numerical values, $s_{ijk} = 1 - \frac{|x_{ik} - x_{jk}|}{r_k}$ where $r_k$ is the range of the feature. For categorical data, $s$ is the Jaccard distance, which is defined as $J(A, B) = \frac{|A \cap B|}{A \cup B}$ for sets $A$ and $B$. 
+
+After constructing the dissimiliary matrix, we then construct the similarity matrix via the Gaussian kernel, and compute the number of 0 eigenvalues of the graph Laplacian. However, note that this all done through functions in R using the StatMatch package. 
+
+```{r}
+distan = gower.dist(model_data)
+k_test = Spectrum::estimate_k(distan, 51)
+k_test
+```
+
+We see that $k$ should be 41. We now compute the silhouette score to double check this value. For a given data point $i \in C_I$, we define $f(i) = \frac{1}{|C_I|-1}\sum_{j \in C_I, j \neq i}d(i,j)$ to be the mean distance of $i$ ot all other data points. We now define $g(i) = \min_{J \neq I}\frac{1}{C_J}\sum_{j in C_J}d(i, j)$ to be the smallest mean distance of $i$ to other data points in other clusters. For $|C_I| > 1$, we define the silhouette score of $i$ to be $s(i) = \frac{g(i)-f(i)}{\max\{f(i), g(i)\}}$. As a result, a silhouette score analysis allows us to see how far points in a cluster are from points in other clusters. We therefore want to choose the $k$ that maximizes the average silhouette score, as this implies the clusters are well separated from each other. 
+
+```{r}
+sil.score(distan, nb.clus = c(30, 50))
+```
+
+Using this information, we can now cluster our data. We will only be clustering on the categorical data containing genre and rating information. Therefore, we will remove any additional unnecessary information from the data. We can then provide a 2D representation of the clusters via PCA. 
+
+```{r}
+k_test = k_test[1]
+
+model_data2 = subset(model_data, select = -c(47:68))
+model_data2 = subset(model_data2, select = -c(1, 2))
+
+model_data2= subset(model_data2, select = -c(Score, English.name))
+
+km = kmeans(na.omit(model_data2), k_test, 300)
+
+factoextra::fviz_cluster(km, data = model_data2, geom = "point")
+```
+
+Unfortunately, it is not very easy to provide nice graphical representations of the clusters, as they exist in higher dimensions, and so all we can see are low dimension projections. 
+
+We now test our model by providing some examples of anime series and seeing the recommendations given. We will be using the "predict" function from the flexclust package. This function will compute the distance between the inputted data points and the centers of every cluster, and choose the cluster with the smallest associated distance. 
+
+```{r}
+library(flexclust)
+
+km2 = as.kcca(km, na.omit(model_data2))
+
+prediction_df = list(predict(km2, model_data[model_data$Name == 'One Piece']))
+prediction_df_ordered = list[order(sapply(prediction_df, function(x) max(x$Score)))]
+prediction = c(prediction_df[1]$Name, prediction_df[2]$Name, prediction_df[3]$Name)
+for (i in 1:3){
+  if (prediction[i] == 'One Piece'){
+    prediction[i] == prediction_df[4]$Name # in case the inputted anime is in the top
+  }
+}
+
+cat("Based on your input, you would like:\n")
+for (element in prediction[1:3]) {
+  cat(element, "\n")
+}
+```
+
+Using domain knowledge, we can say that this is a good recommendation based on our input. 
+
+We can in fact provide recommendations even for series that are not in the data set. Now we create a random anime series, and see what the model would recommend.
+```{r}
+test_anime = model_data[model_data$Name == 'One Piece', ] # To get a 1 x n row of the DataFrame
+for (col in colnames(test_anime)){
+  test_anime[[col]] = 0
+}
+
+test_anime$Name = 'Test'
+test_anime$MAL_ID = 1 #not used in model
+test_anime$Score = runif(1, 1, 10)
+test_anime$Drama = 1
+test_anime$Horror = 1
+test_anime$`Sci-Fi` = 1
+test_anime$Thriller = 1
+test_anime$`RatingR - 17+ (violence & profanity)` = 1
+test_anime$English.name = 'Test'
+
+prediction_df = list(predict(km2, test_anime))
+prediction_df_ordered = list[order(sapply(prediction_df, function(x) max(x$Score)))]
+prediction = c(prediction_df[1]$Name, prediction_df[2]$Name, prediction_df[3]$Name)
+for (i in 1:3){
+  if (prediction[i] == 'Test'){
+    prediction[i] == prediction_df[4]$Name # in case the inputted anime is in the top
+  }
+}
+
+cat("Based on your input, you would like:\n")
+for (element in prediction[1:3]) {
+  cat(element, "\n")
+}
+```
+
+We constructed a test anime series that is a Drama, Horror, Thriller, Sci-Fi series that is rated R, and the model provided us with relatively similar series. Unfortunately, because we used an unsupervised algorithm to construct the recommendation mechanism, there are no suitable metrics we can use to determine how good our model is. Despite this, from repeated testing and using domain knowledge, it seems that the model does provide series recommendations that mirror the inputted anime. 
+
+# Conclusion 
+We were able to construct an anime recommendation system using k-means clustering, where the $k$ value was determined via spectral analysis and double checked with the silhouette score. Although is is difficult to  provide nice graphical representations of the cluster and to use metrics to determine how effective our model is, from initial testing by plugging in series, it seems that the model does provide recommendations similar to the input.
+
+# Sources
+1. F. Liesch, “Flexclust (version 1.4-1),” RDocumentation     https://www.rdocumentation.org/packages/flexclust/versions/1.4-1 (accessed Dec. 14, 2023). 
+
+2. H. Valdivieso, “Anime Recommendation Database 2020.” 2020 
+
+3. M.  D’Orazio, STATMATCH: Statistical matching or data fusion - the comprehensive R ..., https://cran.r-project.org/web/packages/StatMatch/StatMatch.pdf (accessed Dec. 14, 2023). 
